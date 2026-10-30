@@ -1,0 +1,22 @@
+[Unit]
+Description=GreenGuest website
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=greenguest-web
+WorkingDirectory=/opt/app/greenguest-web
+ExecStart=/opt/app/greenguest-web/GreenGuest_Web
+EnvironmentFile=/etc/greenguest-web/env
+# Data Protection açarları restart-dan sonra da qalsın deyə
+Environment=HOME=/var/lib/greenguest-web
+StateDirectory=greenguest-web
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

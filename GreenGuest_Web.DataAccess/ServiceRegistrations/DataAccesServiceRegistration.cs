@@ -15,7 +15,7 @@ public static class DataAccesServiceRegistration
 {
 	public static IServiceCollection AddDataAccessServices(this IServiceCollection services, IConfiguration configuration)
 	{
-		services.AddDbContext<AppDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("Default")));
+		services.AddDbContext<AppDbContext>(options => options.UseNpgsql(configuration.GetConnectionString("Default")));
 
 		services.AddScoped<BaseEntityInterceptor>();
 		services.AddScoped<DbContextInitializer>();

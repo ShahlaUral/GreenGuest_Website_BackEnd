@@ -1,0 +1,64 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  APP_DIR: /opt/app/greenguest-web
+  SERVICE: greenguest-web
+  DEPLOY_USER: greenguest-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Repoda izlənən bin/obj qovluqları Windows yolları saxlayır
+      - name: Remove tracked build output
+        run: find . -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} +
+
+      - name: Publish
+        run: |
+          dotnet publish GreenGuest_Web/GreenGuest_Web.csproj \
+            -c Release -r linux-x64 --self-contained true -o publish
+          rm -f publish/appsettings.Development.json
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Upload
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: rsync -az --delete publish/ "$DEPLOY_USER@$SSH_HOST:$APP_DIR/"
+
+      - name: Restart and health check
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          ssh "$DEPLOY_USER@$SSH_HOST" "
+            sudo /usr/bin/systemctl restart $SERVICE
+            for i in \$(seq 1 30); do
+              curl -fsS -o /dev/null http://127.0.0.1:5080/ && exit 0
+              sleep 2
+            done
+            echo 'Sayt 60 saniyədə cavab vermədi' >&2
+            exit 1
+          "

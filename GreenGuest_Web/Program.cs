@@ -3,6 +3,7 @@ using GreenGuest_Web.Core.Entities;
 using GreenGuest_Web.DataAccess.Contexts;
 using GreenGuest_Web.DataAccess.Interceptors;
 using GreenGuest_Web.DataAccess.ServiceRegistrations;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +17,7 @@ namespace GreenGuest_Web
 			builder.Services.AddScoped<BaseEntityInterceptor>();
 
 			builder.Services.AddDbContext<AppDbContext>(options =>
-			options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+			options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
 			// 🔹 Identity konfiqurasiyası
@@ -34,7 +35,14 @@ namespace GreenGuest_Web
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
             });
+            // 🔹 Sayt nginx arxasında işləyir, orijinal sxem və IP oradan gəlir
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
             var app = builder.Build();
+
+			app.UseForwardedHeaders();
 
 			// Configure the HTTP request pipeline.
 			if (!app.Environment.IsDevelopment())
